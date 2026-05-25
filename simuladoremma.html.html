@@ -1,0 +1,1754 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmmaGlow — Laboratorio Virtual de Manufactura</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;1,400&family=Plus+Jakarta+Sans:wght@200;400;600&display=swap');
+
+        :root {
+            --emma-pink: #FDF4F2;
+            --emma-accent: #E7AC9A;
+            --emma-rose: #F472B6;
+            --emma-text: #4A4A4A;
+            --emma-dark: #2D1B1B;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--emma-pink);
+            color: var(--emma-text);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            cursor: none;
+            user-select: none;
+        }
+
+        .serif { font-family: 'Cormorant Garamond', serif; }
+
+        /* ===== CURSOR MANO GUANTE ROSA ===== */
+        #custom-cursor {
+            position: fixed;
+            width: 52px;
+            height: 52px;
+            pointer-events: none;
+            z-index: 99999;
+            transform: translate(-12%, -8%);
+            transition: transform 0.05s ease;
+            filter: drop-shadow(0 3px 6px rgba(231,172,154,0.5));
+        }
+        #custom-cursor.grabbing { transform: translate(-12%, -8%) scale(0.9); }
+        #custom-cursor svg { width: 100%; height: 100%; }
+
+        /* ===== PANTALLA INICIO ===== */
+        #start-screen {
+            position: fixed; inset: 0; z-index: 100;
+            background: linear-gradient(160deg, #FDF4F2 0%, #FDE8E2 50%, #FDF4F2 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center;
+        }
+        .formula-card {
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(20px);
+            border-radius: 40px;
+            padding: 48px 36px;
+            border: 1.5px solid rgba(231,172,154,0.2);
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative; overflow: hidden;
+        }
+        .formula-card::before {
+            content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at 50% 0%, rgba(231,172,154,0.12) 0%, transparent 70%);
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .formula-card:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 30px 60px rgba(231,172,154,0.25); border-color: var(--emma-accent); }
+        .formula-card:hover::before { opacity: 1; }
+
+        /* ===== LAB UI ===== */
+        #lab-ui { display: none; height: 100vh; flex-direction: column; padding: 20px 28px 20px 28px; }
+
+        /* ===== ESTACIÓN DE TRABAJO ===== */
+        .machine-container {
+            flex: 1;
+            background: rgba(255,255,255,0.75);
+            backdrop-filter: blur(16px);
+            border-radius: 36px;
+            border: 1.5px solid rgba(231,172,154,0.25);
+            box-shadow: 0 20px 60px rgba(231,172,154,0.12);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: relative; overflow: hidden; padding: 24px;
+        }
+        .machine-container::after {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background: radial-gradient(ellipse at 50% 0%, rgba(231,172,154,0.08) 0%, transparent 60%);
+        }
+
+        /* ETIQUETA MÁQUINA */
+        .machine-label {
+            position: absolute; top: 20px; left: 24px;
+            font-size: 9px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
+            color: var(--emma-accent); display: flex; align-items: center; gap: 6px;
+        }
+        .machine-label-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--emma-accent); animation: blink 1.4s infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+        /* ===== INSTRUCCION FLOTANTE ===== */
+        .instruccion-box {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(255,255,255,0.95); border-radius: 16px; padding: 10px 22px;
+            font-size: 11px; font-weight: 600; color: var(--emma-text);
+            border: 1px solid rgba(231,172,154,0.3); white-space: nowrap;
+            box-shadow: 0 8px 24px rgba(231,172,154,0.15);
+        }
+
+        /* ===== INPUT AREA ===== */
+        .input-area {
+            background: #1E1E1E; border-radius: 18px; padding: 14px 28px;
+            box-shadow: inset 0 2px 12px rgba(0,0,0,0.6), 0 4px 20px rgba(0,0,0,0.15);
+            display: flex; align-items: center; gap: 12px;
+            transition: box-shadow 0.3s;
+        }
+        .input-area input {
+            background: transparent; border: none; outline: none;
+            font-family: 'Courier New', monospace; font-size: 2rem; font-weight: 700;
+            color: #4ade80; width: 140px; text-align: center;
+        }
+        .input-area input::-webkit-outer-spin-button,
+        .input-area input::-webkit-inner-spin-button { -webkit-appearance: none; }
+        .input-unit { font-size: 11px; font-weight: 700; color: #6b6b6b; letter-spacing: 0.15em; }
+        .target-badge {
+            background: rgba(231,172,154,0.15); border: 1px solid rgba(231,172,154,0.3);
+            padding: 6px 14px; border-radius: 10px;
+            font-size: 10px; font-weight: 700; color: var(--emma-accent);
+        }
+
+        /* ===== PASOS ===== */
+        .paso-item {
+            padding: 12px 14px; border-radius: 18px; border: 1px solid transparent;
+            transition: all 0.3s ease; margin-bottom: 8px;
+        }
+        .paso-active { background: white; border-color: var(--emma-accent); box-shadow: 0 4px 16px rgba(231,172,154,0.15); }
+        .paso-done { background: rgba(134,239,172,0.08); border-color: rgba(134,239,172,0.3); opacity: 0.7; }
+        .paso-pending { opacity: 0.3; }
+
+        /* ===== BOTÓN CONFIRMAR ===== */
+        .btn-confirm {
+            background: var(--emma-dark); color: white; border: none;
+            padding: 14px 32px; border-radius: 50px; cursor: pointer;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .btn-confirm:hover { background: #E7AC9A; transform: scale(1.05); }
+        .btn-confirm:active { transform: scale(0.97); }
+
+        /* ===== ANIMACIONES MÁQUINAS ===== */
+
+        /* BALANZA */
+        .balanza-plato { animation: tilt 3s ease-in-out infinite; transform-origin: center; }
+        @keyframes tilt { 0%,100%{transform:rotate(-2deg)} 50%{transform:rotate(2deg)} }
+
+        /* MORTERO */
+        .mortero-body {
+            width: 140px; height: 88px;
+            background: linear-gradient(180deg, #F9F9F9 0%, #EBEBEB 100%);
+            border-radius: 0 0 70px 70px;
+            border: 3px solid #DEDEDE;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08), inset 0 -4px 10px rgba(0,0,0,0.05);
+            position: relative;
+        }
+        .mortero-mano {
+            width: 16px; height: 64px;
+            background: linear-gradient(180deg, #CFCFCF 0%, #B0B0B0 100%);
+            border-radius: 8px 8px 4px 4px;
+            position: absolute; top: -55px; left: 58px;
+            box-shadow: 2px 0 6px rgba(0,0,0,0.1);
+            transform-origin: bottom center;
+        }
+        .mortero-polvo {
+            position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+            border-radius: 0 0 60px 60px; transition: all 0.8s ease; opacity: 0.85;
+        }
+        .moler-anim { animation: moler 1.2s infinite linear; }
+        @keyframes moler {
+            0%   { transform: rotate(0deg) translateX(12px) rotate(0deg); }
+            100% { transform: rotate(360deg) translateX(12px) rotate(-360deg); }
+        }
+
+        /* MEZCLADOR HOBART */
+        .hobart-bowl {
+            width: 150px; height: 100px;
+            background: linear-gradient(180deg, #E8E8E8 0%, #D4D4D4 100%);
+            border-radius: 0 0 75px 75px;
+            border: 3px solid #C8C8C8;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1), inset 0 -6px 16px rgba(0,0,0,0.07);
+            position: relative; overflow: hidden;
+        }
+        .hobart-base {
+            width: 170px; height: 20px; background: #B8B8B8;
+            border-radius: 10px; margin-top: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .hobart-gancho {
+            width: 6px; height: 70px; background: linear-gradient(180deg,#999,#666);
+            border-radius: 3px; position: absolute; top: -55px; left: 68px;
+            transform-origin: bottom center;
+        }
+        .hobart-gancho::after {
+            content: ''; position: absolute; bottom: 0; left: -8px;
+            width: 22px; height: 22px;
+            border: 4px solid #888; border-radius: 50%;
+        }
+        .girar-anim { animation: girar 0.7s infinite linear; }
+        @keyframes girar { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+
+        /* AGITADOR MAGNÉTICO */
+        .beaker-glass {
+            width: 100px; height: 130px;
+            background: rgba(200,230,255,0.25);
+            border: 3px solid rgba(180,210,240,0.6);
+            border-top: none;
+            border-radius: 0 0 28px 28px;
+            position: relative; overflow: hidden;
+            box-shadow: inset 2px 0 8px rgba(255,255,255,0.4), 0 10px 30px rgba(100,180,240,0.15);
+        }
+        .beaker-grad {
+            position: absolute; inset: 0;
+            background: linear-gradient(180deg, transparent 30%, rgba(100,200,255,0.2) 100%);
+        }
+        .beaker-barra {
+            width: 50px; height: 8px; border-radius: 4px;
+            background: linear-gradient(90deg, #fff 0%, #ccc 50%, #fff 100%);
+            position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+        }
+        .barra-spin { animation: spinBarra 1s infinite linear; transform-origin: center; }
+        @keyframes spinBarra { from{transform:translateX(-50%) rotate(0)} to{transform:translateX(-50%) rotate(360deg)} }
+        .liquid-bubble {
+            position: absolute; border-radius: 50%;
+            background: rgba(255,255,255,0.5); animation: bubble 2s infinite ease-in;
+        }
+        @keyframes bubble { 0%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-80px)} }
+
+        /* PRENSA HIDRÁULICA */
+        .prensa-cuerpo {
+            width: 160px; height: 200px;
+            background: linear-gradient(180deg, #6B6B6B 0%, #4A4A4A 100%);
+            border-radius: 12px 12px 0 0; position: relative;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.2);
+        }
+        .prensa-pistón {
+            width: 100px; height: 40px;
+            background: linear-gradient(180deg, #888 0%, #555 100%);
+            border-radius: 6px; position: absolute; left: 50%; transform: translateX(-50%);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .prensa-molde {
+            width: 140px; height: 28px;
+            background: linear-gradient(180deg, #D4A0A0 0%, #C47A7A 100%);
+            border-radius: 0 0 10px 10px;
+        }
+        .pistón-anim { animation: pistón 1.6s ease-in-out infinite; }
+        @keyframes pistón { 0%,100%{top:30px} 50%{top:140px} }
+
+        /* BAÑO MARÍA */
+        .banomaria-tina {
+            width: 180px; height: 100px;
+            background: linear-gradient(180deg, rgba(255,220,180,0.4) 0%, rgba(255,180,100,0.3) 100%);
+            border: 3px solid rgba(255,200,150,0.6);
+            border-radius: 0 0 24px 24px;
+            box-shadow: 0 10px 30px rgba(255,150,50,0.15), inset 0 -4px 16px rgba(255,200,100,0.2);
+            position: relative; overflow: hidden;
+        }
+        .vapor {
+            position: absolute; width: 4px; border-radius: 2px;
+            background: rgba(255,255,255,0.7); animation: vapor 2s ease-in infinite;
+            bottom: 0;
+        }
+        @keyframes vapor { 0%{opacity:0.8;transform:translateY(0) scaleX(1)} 100%{opacity:0;transform:translateY(-60px) scaleX(3)} }
+        .termometro {
+            width: 16px; height: 90px; background: #EEE;
+            border-radius: 8px 8px 12px 12px; border: 2px solid #CCC;
+            position: relative; overflow: hidden;
+        }
+        .mercurio { position: absolute; bottom: 0; left: 2px; right: 2px; background: #E7AC9A; border-radius: 0 0 10px 10px; transition: height 1s ease; }
+
+        /* SAMIX */
+        .samix-body {
+            width: 130px; height: 170px;
+            background: linear-gradient(180deg, #D0E8F2 0%, #A8C8D8 100%);
+            border-radius: 20px 20px 12px 12px;
+            box-shadow: 0 16px 40px rgba(100,160,200,0.2), inset 0 2px 8px rgba(255,255,255,0.5);
+            position: relative;
+        }
+        .samix-bowl {
+            width: 120px; height: 70px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(200,220,230,0.5) 100%);
+            border: 2px solid rgba(255,255,255,0.4);
+            border-radius: 0 0 60px 60px;
+            position: absolute; bottom: -40px; left: 5px;
+            overflow: hidden;
+        }
+        .samix-turbina {
+            width: 60px; height: 60px; position: absolute;
+            top: 50%; left: 50%; transform: translate(-50%,-50%);
+        }
+        .turbina-giro { animation: girar 0.4s infinite linear; }
+
+        /* FILTRO */
+        .filtro-body {
+            width: 80px; height: 120px;
+            background: linear-gradient(180deg, #F0F4F8 0%, #E2E8EF 100%);
+            border-radius: 8px 8px 40px 40px;
+            border: 3px solid #CBD5E1;
+            position: relative; overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+        }
+        .filtro-liquid { position: absolute; bottom: 0; left: 0; right: 0; border-radius: 0 0 36px 36px; transition: height 1s; }
+        .gota { animation: caerGota 1.5s ease-in infinite; }
+        @keyframes caerGota { 0%{opacity:0;transform:translateY(-10px)} 40%{opacity:1} 100%{opacity:0;transform:translateY(30px)} }
+
+        /* ENVASADORA */
+        .frasco-env {
+            width: 70px; height: 110px;
+            background: linear-gradient(160deg, rgba(255,255,255,0.6) 0%, rgba(240,220,220,0.4) 100%);
+            border: 2px solid rgba(231,172,154,0.4);
+            border-radius: 12px 12px 18px 18px;
+            position: relative; overflow: hidden;
+            box-shadow: 4px 4px 20px rgba(231,172,154,0.2);
+        }
+
+        /* ===== MODAL FINAL ===== */
+        #final-modal {
+            position: fixed; inset: 0; z-index: 500;
+            background: linear-gradient(160deg, #FDF4F2 0%, #FDE8E2 100%);
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center;
+        }
+        .empaque-visual {
+            width: 220px; height: 280px; position: relative; margin: 0 auto 32px;
+            animation: aparecer 0.8s cubic-bezier(0.34,1.56,0.64,1) both;
+        }
+        @keyframes aparecer { from{opacity:0;transform:scale(0.6) rotate(-8deg)} to{opacity:1;transform:scale(1) rotate(0)} }
+        .confetti {
+            position: fixed; pointer-events: none;
+            width: 8px; height: 8px; border-radius: 2px;
+            animation: confettiCaer linear forwards;
+        }
+        @keyframes confettiCaer {
+            0%{opacity:1;transform:translateY(-20px) rotate(0deg)}
+            100%{opacity:0;transform:translateY(110vh) rotate(720deg)}
+        }
+
+        /* ERROR SHAKE */
+        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+        .shake { animation: shake 0.3s ease; }
+
+        /* CALIDAD BARRA */
+        .calidad-bar { height: 4px; background: rgba(231,172,154,0.2); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+        .calidad-fill { height: 100%; background: linear-gradient(90deg, #4ade80, #86efac); border-radius: 2px; transition: width 0.5s ease; }
+        .calidad-fill.warn { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+        .calidad-fill.danger { background: linear-gradient(90deg, #f87171, #ef4444); }
+
+        .btn-back {
+            transition: all 0.3s ease; background: none; border: none; cursor: pointer;
+            display: flex; align-items: center; gap: 8px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
+            color: #9CA3AF;
+        }
+        .btn-back:hover { color: var(--emma-accent); transform: translateX(-4px); }
+
+        /* FEEDBACK VERDE */
+        .feedback-ok {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            background: rgba(134,239,172,0.95); color: #14532d;
+            padding: 12px 28px; border-radius: 50px;
+            font-size: 11px; font-weight: 700; letter-spacing: 0.15em;
+            z-index: 1000; pointer-events: none;
+            animation: fadeInOut 1s ease forwards;
+        }
+        @keyframes fadeInOut { 0%{opacity:0;transform:translate(-50%,-60%)} 20%{opacity:1;transform:translate(-50%,-50%)} 80%{opacity:1} 100%{opacity:0;transform:translate(-50%,-40%)} }
+
+        /* Partículas de polvo en mortero */
+        .polvo-particula {
+            position: absolute; border-radius: 50%;
+            animation: polvoAnim 1.5s ease-in-out infinite;
+            opacity: 0.6;
+        }
+        @keyframes polvoAnim { 0%,100%{transform:translateY(0) translateX(0)} 50%{transform:translateY(-12px) translateX(6px)} }
+
+        .liquid-fill { animation: llenar 3s ease forwards; }
+        @keyframes llenar { from{height:0} to{height:80%} }
+
+        /* Scrollbar paso list */
+        #lista-pasos { overflow-y: auto; flex: 1; padding-right: 4px; }
+        #lista-pasos::-webkit-scrollbar { width: 3px; }
+        #lista-pasos::-webkit-scrollbar-thumb { background: rgba(231,172,154,0.4); border-radius: 2px; }
+
+        .numero-paso {
+            display: flex; align-items: center; justify-content: center;
+            width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+            font-size: 10px; font-weight: 800;
+        }
+    </style>
+</head>
+<body>
+
+<!-- CURSOR MANO GUANTE ROSA -->
+<div id="custom-cursor">
+    <svg viewBox="0 0 80 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Palma -->
+        <rect x="16" y="38" width="48" height="44" rx="12" fill="#F9B8C4"/>
+        <rect x="16" y="38" width="48" height="44" rx="12" fill="url(#glove-gradient)" opacity="0.6"/>
+        <!-- Dedos -->
+        <rect x="20" y="14" width="12" height="34" rx="6" fill="#F9B8C4"/>
+        <rect x="34" y="8" width="12" height="36" rx="6" fill="#F9B8C4"/>
+        <rect x="48" y="12" width="12" height="34" rx="6" fill="#F9B8C4"/>
+        <rect x="60" y="20" width="10" height="28" rx="5" fill="#F9B8C4"/>
+        <rect x="10" y="34" width="10" height="24" rx="5" fill="#F9B8C4"/>
+        <!-- Brillo -->
+        <rect x="22" y="16" width="4" height="14" rx="2" fill="rgba(255,255,255,0.5)"/>
+        <rect x="36" y="10" width="4" height="14" rx="2" fill="rgba(255,255,255,0.5)"/>
+        <!-- Contorno -->
+        <rect x="16" y="38" width="48" height="44" rx="12" stroke="#E885A0" stroke-width="1.5"/>
+        <rect x="20" y="14" width="12" height="34" rx="6" stroke="#E885A0" stroke-width="1.2"/>
+        <rect x="34" y="8" width="12" height="36" rx="6" stroke="#E885A0" stroke-width="1.2"/>
+        <rect x="48" y="12" width="12" height="34" rx="6" stroke="#E885A0" stroke-width="1.2"/>
+        <rect x="60" y="20" width="10" height="28" rx="5" stroke="#E885A0" stroke-width="1.2"/>
+        <rect x="10" y="34" width="10" height="24" rx="5" stroke="#E885A0" stroke-width="1.2"/>
+        <defs>
+            <linearGradient id="glove-gradient" x1="16" y1="38" x2="64" y2="82" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#FFC8D5"/>
+                <stop offset="1" stop-color="#F085A0"/>
+            </linearGradient>
+        </defs>
+    </svg>
+</div>
+
+<!-- ===== PANTALLA SELECCIÓN ===== -->
+<div id="start-screen">
+    <!-- Decoración fondo -->
+    <div style="position:absolute;top:-60px;left:-60px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(231,172,154,0.12),transparent);pointer-events:none"></div>
+    <div style="position:absolute;bottom:-80px;right:-80px;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(244,114,182,0.08),transparent);pointer-events:none"></div>
+
+    <p class="text-[9px] font-bold uppercase tracking-[0.5em] text-[#E7AC9A] mb-4">Simulador I+D · Planta Piloto</p>
+    <h1 class="serif mb-3" style="font-size:clamp(4rem,10vw,8rem);color:#E7AC9A;line-height:1">EmmaGlow</h1>
+    <p class="text-[10px] text-gray-400 uppercase tracking-[0.4em] mb-12 italic">Manufactura de Rubores Híbridos Antiacné</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 w-full max-w-6xl px-8">
+
+        <div class="formula-card" onclick="iniciarProceso('polvo')">
+            <div style="font-size:3rem;margin-bottom:14px">🌸</div>
+            <h3 class="serif text-3xl mb-1">Polvo Compacto</h3>
+            <p class="text-[9px] text-gray-400 uppercase tracking-widest mb-4">BHA Pore-Refining</p>
+            <div style="height:2px;background:linear-gradient(90deg,#E7AC9A,transparent);border-radius:1px;margin-bottom:14px"></div>
+            <p class="text-[10px] text-gray-500 leading-relaxed">Mortero · Hobart · Prensa</p>
+            <div style="position:absolute;top:20px;right:20px;font-size:8px;font-weight:700;letter-spacing:0.15em;color:#E7AC9A;text-transform:uppercase">6 pasos</div>
+        </div>
+
+        <div class="formula-card" onclick="iniciarProceso('liquido')">
+            <div style="font-size:3rem;margin-bottom:14px">💧</div>
+            <h3 class="serif text-3xl mb-1">Rubor Líquido</h3>
+            <p class="text-[9px] text-gray-400 uppercase tracking-widest mb-4">Niacinamide Sebum-Control</p>
+            <div style="height:2px;background:linear-gradient(90deg,#F472B6,transparent);border-radius:1px;margin-bottom:14px"></div>
+            <p class="text-[10px] text-gray-500 leading-relaxed">Beaker · Agitador · Filtro</p>
+            <div style="position:absolute;top:20px;right:20px;font-size:8px;font-weight:700;letter-spacing:0.15em;color:#F472B6;text-transform:uppercase">5 pasos</div>
+        </div>
+
+        <div class="formula-card" onclick="iniciarProceso('crema')">
+            <div style="font-size:3rem;margin-bottom:14px">✨</div>
+            <h3 class="serif text-3xl mb-1">Rubor en Crema</h3>
+            <p class="text-[9px] text-gray-400 uppercase tracking-widest mb-4">Tea Tree Antibacterial</p>
+            <div style="height:2px;background:linear-gradient(90deg,#FB7185,transparent);border-radius:1px;margin-bottom:14px"></div>
+            <p class="text-[10px] text-gray-500 leading-relaxed">Baño María · SAMIX · Envasadora</p>
+            <div style="position:absolute;top:20px;right:20px;font-size:8px;font-weight:700;letter-spacing:0.15em;color:#FB7185;text-transform:uppercase">6 pasos</div>
+        </div>
+
+        <!-- NUEVA: Bio-Blush Rosa Sandía -->
+        <div class="formula-card" onclick="iniciarProceso('bioblush')" style="border-color:rgba(232,80,122,0.2)">
+            <div style="font-size:3rem;margin-bottom:14px">🍉</div>
+            <h3 class="serif text-3xl mb-1" style="color:#E8507A">Bio-Blush</h3>
+            <p class="text-[9px] uppercase tracking-widest mb-4" style="color:#E8507A;opacity:0.7">Rosa Sandía · Termostable</p>
+            <div style="height:2px;background:linear-gradient(90deg,#E8507A,transparent);border-radius:1px;margin-bottom:14px"></div>
+            <p class="text-[10px] text-gray-500 leading-relaxed">Agitador · Mortero · SAMIX · pH</p>
+            <div style="position:absolute;top:20px;right:20px;font-size:8px;font-weight:700;letter-spacing:0.15em;color:#E8507A;text-transform:uppercase">6 pasos</div>
+            <div style="position:absolute;bottom:16px;right:16px;background:rgba(232,80,122,0.1);border:1px solid rgba(232,80,122,0.3);border-radius:8px;padding:3px 8px;font-size:7px;font-weight:700;color:#E8507A;text-transform:uppercase;letter-spacing:0.1em">NUEVO</div>
+        </div>
+    </div>
+
+    <!-- ANALIZADOR IA -->
+    <button onclick="abrirAnalizador()" style="margin-top:24px;background:linear-gradient(135deg,#2D1B1B,#4A2828);color:white;border:none;padding:14px 36px;border-radius:50px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1);display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(45,27,27,0.2)" onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 16px 40px rgba(232,80,122,0.3)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 8px 24px rgba(45,27,27,0.2)'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
+        Analizador IA de Fórmulas · Subir PDF
+        <span style="background:rgba(232,80,122,0.3);border:1px solid rgba(232,80,122,0.5);border-radius:6px;padding:2px 8px;font-size:7px">BETA IA</span>
+    </button>
+
+    <p class="text-[9px] text-gray-300 mt-6 uppercase tracking-widest">Usa la mano con guante rosa para interactuar ✦</p>
+</div>
+
+<!-- ===== LAB UI ===== -->
+<div id="lab-ui" style="display:none;height:100vh;flex-direction:column;padding:20px 28px;">
+
+    <!-- HEADER -->
+    <header class="flex justify-between items-start mb-4">
+        <div class="flex items-center gap-6">
+            <button onclick="location.reload()" class="btn-back">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                Menú
+            </button>
+            <div>
+                <h2 id="titulo-producto" class="serif" style="font-size:2.2rem;line-height:1;color:#4A4A4A"></h2>
+                <p id="subtitulo-maquina" class="text-[9px] text-gray-400 uppercase tracking-widest mt-1"></p>
+            </div>
+        </div>
+        <div class="text-right">
+            <p class="text-[9px] font-bold uppercase tracking-widest" style="color:#E7AC9A">Calidad del Lote</p>
+            <p id="calidad-display" class="serif" style="font-size:2.8rem;line-height:1">100%</p>
+            <div class="calidad-bar" style="width:100px;margin-left:auto;margin-top:4px">
+                <div id="calidad-fill" class="calidad-fill" style="width:100%"></div>
+            </div>
+        </div>
+    </header>
+
+    <!-- LAYOUT PRINCIPAL -->
+    <div style="display:flex;gap:20px;flex:1;min-height:0">
+
+        <!-- ÁREA MÁQUINA -->
+        <div class="machine-container" style="flex:1">
+            <div class="machine-label">
+                <div class="machine-label-dot"></div>
+                <span id="maquina-nombre-label">—</span>
+            </div>
+            <div id="machine-visual" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;flex:1;width:100%;position:relative"></div>
+
+            <!-- CONTROLES INPUT -->
+            <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding-bottom:8px">
+                <div style="display:flex;align-items:center;gap:10px">
+                    <div id="target-badge" class="target-badge">
+                        Meta: <span id="target-value">—</span> <span id="unit-label">—</span>
+                    </div>
+                </div>
+                <div class="input-area" id="input-area">
+                    <input type="number" id="valor-input" placeholder="0.00" step="0.01">
+                    <span class="input-unit" id="unit-display">—</span>
+                </div>
+                <button class="btn-confirm" onclick="validarPaso()">
+                    ✓ &nbsp; Confirmar
+                </button>
+                <p id="instruccion-maquina" style="font-size:10px;color:#9CA3AF;font-weight:600;letter-spacing:0.1em;text-align:center"></p>
+            </div>
+        </div>
+
+        <!-- LISTA DE PASOS -->
+        <aside style="width:260px;display:flex;flex-direction:column">
+            <div style="background:rgba(255,255,255,0.6);backdrop-filter:blur(12px);padding:20px 16px;border-radius:32px;border:1.5px solid rgba(231,172,154,0.2);flex:1;display:flex;flex-direction:column;overflow:hidden">
+                <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-4">Hoja de Ruta</p>
+                <div id="lista-pasos" style="flex:1;overflow-y:auto"></div>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<!-- ===== MODAL FINAL ===== -->
+<div id="final-modal" style="display:none;position:fixed;inset:0;z-index:500;background:linear-gradient(160deg,#FDF4F2,#FDE8E2);flex-direction:column;align-items:center;justify-content:center;text-align:center">
+
+    <div id="empaque-container" class="empaque-visual"></div>
+
+    <p class="text-[9px] font-bold uppercase tracking-[0.4em] mb-2" style="color:#E7AC9A">Control de Calidad · Liberación de Lote</p>
+    <h2 class="serif mb-3" style="font-size:4.5rem;color:#E7AC9A;line-height:1">Lote Aprobado</h2>
+    <p id="final-desc" class="text-sm text-gray-400 mb-2" style="max-width:420px;line-height:1.7"></p>
+    <p class="text-[10px] text-gray-300 mb-8">✓ pH entre 6.0–8.0 &nbsp;·&nbsp; ✓ Sin contaminantes &nbsp;·&nbsp; ✓ Textura conforme</p>
+
+    <div style="display:flex;gap:12px">
+        <button onclick="location.reload()" style="background:#2D1B1B;color:white;border:none;padding:14px 32px;border-radius:50px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;transition:all 0.3s" onmouseover="this.style.background='#E7AC9A'" onmouseout="this.style.background='#2D1B1B'">
+            Nueva Fórmula
+        </button>
+    </div>
+</div>
+
+<script>
+/* ========================================================
+   DATOS DE FÓRMULAS (basados en el PDF)
+   ======================================================== */
+const FORMULAS = {
+    polvo: {
+        titulo: "Polvo Compacto BHA",
+        subtitulo: "Pore-Refining · Lote 200g",
+        color: "#E7AC9A",
+        colorRGB: "231,172,154",
+        icon: "🌸",
+        pasos: [
+            {
+                id: "disp", nombre: "Dispensación", maquina: "Balanza Analítica",
+                target: 136.00, unidad: "g", tolerancia: 0.5,
+                info: "Pesa el Talco Micronizado con precisión ±0.01g",
+                tipo: "balanza",
+                ingrediente: "Talco Micronizado"
+            },
+            {
+                id: "micro", nombre: "Micronización de Color", maquina: "Mortero de Porcelana",
+                target: 15.00, unidad: "g", tolerancia: 0.5,
+                info: "Agrega 15g de talco con lacas certificadas · Muele hasta homogeneidad",
+                tipo: "mortero",
+                ingrediente: "Talco + Lacas Certificadas",
+                colorPolvo: "#E7AC9A"
+            },
+            {
+                id: "activos", nombre: "Mezclado de Activos", maquina: "Mortero de Porcelana",
+                target: 4.00, unidad: "g", tolerancia: 0.2,
+                info: "Agrega Ácido Salicílico + ZnO · Pulveriza < 50µm",
+                tipo: "mortero",
+                ingrediente: "Ácido Salicílico + ZnO",
+                colorPolvo: "#F0EEE8"
+            },
+            {
+                id: "homo", nombre: "Homogeneización", maquina: "Mezclador Hobart",
+                target: 20.0, unidad: "min", tolerancia: 1,
+                info: "Incorpora todos los polvos · 20 minutos a velocidad constante",
+                tipo: "hobart",
+                ingrediente: "Mezcla completa de polvos"
+            },
+            {
+                id: "asper", nombre: "Aspersión Aglutinante", maquina: "Agitador",
+                target: 4.00, unidad: "g", tolerancia: 0.2,
+                info: "Aplica Miristato de Isopropilo gota a gota bajo agitación",
+                tipo: "agitador",
+                ingrediente: "Miristato de Isopropilo",
+                colorLiq: "rgba(255,240,200,0.6)"
+            },
+            {
+                id: "comp", nombre: "Compactación", maquina: "Prensa Hidráulica",
+                target: 15.0, unidad: "bar", tolerancia: 0.5,
+                info: "Aplica 15 bar en moldes de aluminio · 3 segundos",
+                tipo: "prensa",
+                ingrediente: "Moldes de aluminio"
+            }
+        ],
+        finalDesc: "El Rubor en Polvo Compacto BHA Pore-Refining fue manufacturado exitosamente. Micronización < 50µm confirmada, resistencia al test de caída superada con 4 impactos.",
+        empaqueTipo: "compacto"
+    },
+
+    liquido: {
+        titulo: "Rubor Líquido Niacinamide",
+        subtitulo: "Sebum-Control · Lote 100ml",
+        color: "#F472B6",
+        colorRGB: "244,114,182",
+        icon: "💧",
+        pasos: [
+            {
+                id: "fasea", nombre: "Fase Acuosa", maquina: "Beaker 250ml",
+                target: 70.00, unidad: "ml", tolerancia: 0.5,
+                info: "Mide 70ml de Agua Desionizada en el beaker",
+                tipo: "beaker",
+                ingrediente: "Agua Desionizada",
+                colorLiq: "rgba(200,230,255,0.4)"
+            },
+            {
+                id: "humec", nombre: "Humectantes", maquina: "Beaker 250ml",
+                target: 16.00, unidad: "ml", tolerancia: 0.5,
+                info: "Agrega Glicerina (10ml) + Propilenglicol (6ml) · Mezcla suave",
+                tipo: "beaker",
+                ingrediente: "Glicerina + Propilenglicol",
+                colorLiq: "rgba(230,230,255,0.5)"
+            },
+            {
+                id: "niaci", nombre: "Solubilización Niacinamida", maquina: "Agitador Magnético 300 RPM",
+                target: 4.00, unidad: "g", tolerancia: 0.2,
+                info: "Añade Niacinamida bajo agitación a 300 RPM · Solución transparente",
+                tipo: "agitadorMag",
+                ingrediente: "Niacinamida 4%",
+                colorLiq: "rgba(220,220,240,0.5)"
+            },
+            {
+                id: "color", nombre: "Pigmentación", maquina: "Mezclador",
+                target: 1.00, unidad: "g", tolerancia: 0.1,
+                info: "Agrega colorante hidrosoluble gota a gota · Ajusta tono",
+                tipo: "agitadorMag",
+                ingrediente: "Colorante Hidrosoluble",
+                colorLiq: "rgba(244,114,182,0.4)"
+            },
+            {
+                id: "filtro", nombre: "Filtración Estéril", maquina: "Filtro Membrane 0.22µm",
+                target: 6.5, unidad: "pH", tolerancia: 0.5,
+                info: "Verifica pH 6.5–7.5 · Filtra por membrana 0.22µm",
+                tipo: "filtro",
+                ingrediente: "Filtro de seguridad microbiológica"
+            }
+        ],
+        finalDesc: "El Rubor Líquido Niacinamide Sebum-Control fue elaborado correctamente. pH 6.5–7.5 confirmado, solución transparente y libre de partículas. Apto para piel acneica.",
+        empaqueTipo: "liquido"
+    },
+
+    crema: {
+        titulo: "Rubor en Crema Tea Tree",
+        subtitulo: "Antibacterial · Lote 100g",
+        color: "#FB7185",
+        colorRGB: "251,113,133",
+        icon: "✨",
+        pasos: [
+            {
+                id: "fusion", nombre: "Fusión de Base", maquina: "Baño María",
+                target: 60.0, unidad: "°C", tolerancia: 2,
+                info: "Calienta el Cremagel Guinama a 60°C en baño maría",
+                tipo: "banomaria",
+                ingrediente: "Cremagel Guinama 82g"
+            },
+            {
+                id: "samix1", nombre: "Emulsificación SAMIX", maquina: "SAMIX 1500 RPM",
+                target: 1500, unidad: "RPM", tolerancia: 50,
+                info: "Emulsifica a 1500 RPM · Textura untuosa y libre de grumos",
+                tipo: "samix",
+                ingrediente: "Base emulsificada"
+            },
+            {
+                id: "enfria", nombre: "Enfriamiento Crítico", maquina: "Control Térmico",
+                target: 45.0, unidad: "°C", tolerancia: 2,
+                info: "Agita lentamente hasta descender a 45°C · No detener la agitación",
+                tipo: "banomaria",
+                ingrediente: "Control temperatura",
+                enfriando: true
+            },
+            {
+                id: "activos2", nombre: "Fase de Activos", maquina: "SAMIX",
+                target: 3.00, unidad: "g", tolerancia: 0.2,
+                info: "Añade Aceite Tea Tree (2g) + Vitamina E (1g) SOLO a < 45°C",
+                tipo: "samix",
+                ingrediente: "Tea Tree + Vitamina E"
+            },
+            {
+                id: "color2", nombre: "Coloración", maquina: "SAMIX",
+                target: 12.00, unidad: "g", tolerancia: 0.5,
+                info: "Incorpora pigmentos en pasta bajo agitación enérgica 30 min",
+                tipo: "samix",
+                ingrediente: "Pigmentos en Pasta 12g",
+                conColor: true
+            },
+            {
+                id: "envasar", nombre: "Envasado Final", maquina: "Envasadora a 40°C",
+                target: 40.0, unidad: "°C", tolerancia: 2,
+                info: "Rellena los envases a 40°C antes de la solidificación final",
+                tipo: "envasadora",
+                ingrediente: "Crema terminada"
+            }
+        ],
+        finalDesc: "El Rubor en Crema Tea Tree Antibacterial fue producido con éxito. Emulsión estable, activos correctamente incorporados < 45°C, textura untuosa conforme a especificación.",
+        empaqueTipo: "crema"
+    },
+
+
+    bioblush: {
+        titulo: "Bio-Blush Rosa Sandía",
+        subtitulo: "Antiacné Termoestable · Lote 150g",
+        color: "#E8507A",
+        colorRGB: "232,80,122",
+        icon: "🍉",
+        pasos: [
+            {
+                id: "red", nombre: "Red Estructural", maquina: "Agitador de Hélice 400 RPM",
+                target: 60.00, unidad: "g", tolerancia: 0.5,
+                info: "Vierte exactamente 60g de Dimeticona 350 en el beaker · Inicia agitador a 400 RPM",
+                tipo: "beaker",
+                ingrediente: "Dimeticona 350 — Vehículo Estructural",
+                colorLiq: "rgba(220,200,230,0.45)"
+            },
+            {
+                id: "polvos", nombre: "Incorporación de Polvos", maquina: "Agitador 600 RPM · 12 min",
+                target: 12.0, unidad: "min", tolerancia: 0.5,
+                info: "Incorpora gradualmente 30g Almidón de Arroz + 22.5g Kaolín · Sube a 600 RPM",
+                tipo: "hobart",
+                ingrediente: "Almidón de Arroz + Kaolín Purificado"
+            },
+            {
+                id: "micro", nombre: "Micronización de Color", maquina: "Mortero de Porcelana",
+                target: 15.00, unidad: "g", tolerancia: 0.5,
+                info: "Combina 15g Óxidos de Hierro + 7.5g Hibisco · Muele hasta < 20µm",
+                tipo: "mortero",
+                ingrediente: "Óxidos de Hierro (Rosa Sandía) + Hibisco",
+                colorPolvo: "#E8507A"
+            },
+            {
+                id: "hotspot", nombre: "Control Hot Spot Crítico", maquina: "Termómetro Digital",
+                target: 28.0, unidad: "°C", tolerancia: 2,
+                info: "⚠ PUNTO CRÍTICO: T < 30°C antes de activos · Enfriar si hay exceso de calor",
+                tipo: "banomaria",
+                ingrediente: "Control Térmico — Protección del Resveratrol",
+                enfriando: true
+            },
+            {
+                id: "bioactivos", nombre: "Activación de Bioactivos", maquina: "SAMIX 300 RPM · 10 min",
+                target: 300, unidad: "RPM", tolerancia: 20,
+                info: "Añade Niacinamida (6g) + Resveratrol (4.5g) + Centella Asiática (3g) · 300 RPM",
+                tipo: "samix",
+                ingrediente: "Niacinamida + Resveratrol + Centella Asiática"
+            },
+            {
+                id: "final", nombre: "Finalización y Envasado", maquina: "pH-metro · Envasadora",
+                target: 5.5, unidad: "pH", tolerancia: 0.2,
+                info: "Añade 1.5g Fragancia Natural Sandía · Ajusta pH a 5.5 · Envasa 15g por tarro",
+                tipo: "filtro",
+                ingrediente: "Fragancia Natural + Ajuste pH Dérmico 5.5"
+            }
+        ],
+        finalDesc: "Bio-Blush Rosa Sandía manufacturado bajo protocolo BB-FINAL-COL-2026 v12. Estabilidad 5°C–50°C confirmada, pH 5.5 validado. 10 tarros de 15g — Arcila & Castro I+D.",
+        empaqueTipo: "bioblush"
+    }
+};
+
+/* ========================================================
+   ESTADO GLOBAL
+   ======================================================== */
+let config = null;
+let tipoActual = null;
+let indexPaso = 0;
+let calidad = 100;
+let errorAcumulado = 0;
+
+/* ========================================================
+   CURSOR PERSONALIZADO
+   ======================================================== */
+document.addEventListener('mousemove', (e) => {
+    const c = document.getElementById('custom-cursor');
+    c.style.left = e.clientX + 'px';
+    c.style.top = e.clientY + 'px';
+});
+document.addEventListener('mousedown', () => document.getElementById('custom-cursor').classList.add('grabbing'));
+document.addEventListener('mouseup', () => document.getElementById('custom-cursor').classList.remove('grabbing'));
+
+/* ========================================================
+   INICIAR PROCESO
+   ======================================================== */
+function iniciarProceso(tipo) {
+    tipoActual = tipo;
+    config = FORMULAS[tipo];
+    indexPaso = 0;
+    calidad = 100;
+    errorAcumulado = 0;
+
+    document.getElementById('start-screen').style.display = 'none';
+    const lab = document.getElementById('lab-ui');
+    lab.style.display = 'flex';
+
+    document.getElementById('titulo-producto').textContent = config.titulo;
+    document.getElementById('calidad-display').textContent = '100%';
+    document.getElementById('calidad-fill').style.width = '100%';
+    document.getElementById('calidad-fill').className = 'calidad-fill';
+
+    actualizarEscena();
+}
+
+/* ========================================================
+   ACTUALIZAR ESCENA
+   ======================================================== */
+function actualizarEscena() {
+    const paso = config.pasos[indexPaso];
+
+    document.getElementById('subtitulo-maquina').textContent = `Paso ${indexPaso + 1}/${config.pasos.length} · ${paso.maquina}`;
+    document.getElementById('maquina-nombre-label').textContent = paso.maquina;
+    document.getElementById('instruccion-maquina').textContent = paso.info;
+    document.getElementById('target-value').textContent = paso.target.toFixed(paso.unidad === 'RPM' ? 0 : 2);
+    document.getElementById('unit-label').textContent = paso.unidad;
+    document.getElementById('unit-display').textContent = paso.unidad;
+
+    const input = document.getElementById('valor-input');
+    input.value = '';
+    input.placeholder = paso.target.toFixed(2);
+    setTimeout(() => input.focus(), 100);
+
+    renderMaquina(paso);
+    renderPasos();
+}
+
+/* ========================================================
+   RENDERIZAR MÁQUINA
+   ======================================================== */
+function renderMaquina(paso) {
+    const v = document.getElementById('machine-visual');
+    v.innerHTML = '';
+
+    const titulo = document.createElement('div');
+    titulo.style.cssText = 'font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#C0A090;margin-bottom:8px;text-align:center';
+    titulo.textContent = paso.ingrediente;
+
+    switch (paso.tipo) {
+
+        case 'balanza':
+            v.appendChild(titulo);
+            v.innerHTML += `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0">
+                <!-- Base balanza -->
+                <div style="width:220px;display:flex;flex-direction:column;align-items:center;gap:0">
+                    <!-- Pantalla digital -->
+                    <div style="background:#1E1E1E;border-radius:10px;padding:8px 20px;box-shadow:inset 0 2px 8px rgba(0,0,0,0.6);margin-bottom:10px">
+                        <span style="font-family:'Courier New',monospace;font-size:1.6rem;color:#4ade80;font-weight:700">0.00 g</span>
+                    </div>
+                    <!-- Brazo -->
+                    <div style="width:4px;height:60px;background:linear-gradient(180deg,#CCC,#AAA);border-radius:2px"></div>
+                    <!-- Viga horizontal -->
+                    <div style="width:180px;height:8px;background:linear-gradient(90deg,#AAA,#EEE,#AAA);border-radius:4px;position:relative;animation:tilt 3s ease-in-out infinite">
+                        <!-- Platillo izq -->
+                        <div style="position:absolute;left:-10px;top:-2px;width:50px;height:4px;background:#BBB;border-radius:2px"></div>
+                        <div style="position:absolute;left:-5px;top:-22px;width:40px;height:14px;background:linear-gradient(180deg,#E8E8E8,#D4D4D4);border-radius:6px;border:2px solid #C8C8C8;box-shadow:0 4px 8px rgba(0,0,0,0.1)"></div>
+                        <!-- Platillo der (con peso) -->
+                        <div style="position:absolute;right:-10px;top:-2px;width:50px;height:4px;background:#BBB;border-radius:2px"></div>
+                        <div style="position:absolute;right:-5px;top:-22px;width:40px;height:14px;background:linear-gradient(180deg,#E7AC9A,#D49078);border-radius:6px;border:2px solid #C88070;box-shadow:0 4px 8px rgba(231,172,154,0.3);display:flex;align-items:center;justify-content:center">
+                            <span style="font-size:8px;font-weight:800;color:white;letter-spacing:0.05em">${paso.target}${paso.unidad}</span>
+                        </div>
+                    </div>
+                    <!-- Columna -->
+                    <div style="width:16px;height:60px;background:linear-gradient(180deg,#D4D4D4,#B0B0B0);border-radius:4px;margin-top:0"></div>
+                    <!-- Base -->
+                    <div style="width:180px;height:16px;background:linear-gradient(180deg,#C8C8C8,#A8A8A8);border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,0.1)"></div>
+                </div>
+            </div>`;
+            break;
+
+        case 'mortero':
+            v.appendChild(titulo);
+            const colorMortero = paso.colorPolvo || '#E7AC9A';
+            v.innerHTML += `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0;position:relative">
+                <!-- Mortero ensamblado -->
+                <div style="position:relative;width:160px;height:130px">
+                    <!-- Mano / Pilón -->
+                    <div style="position:absolute;top:0;left:68px;width:22px;height:80px;background:linear-gradient(180deg,#D0D0D0,#A8A8A8);border-radius:11px 11px 6px 6px;box-shadow:2px 0 8px rgba(0,0,0,0.1);transform-origin:bottom center" class="moler-anim">
+                        <div style="position:absolute;top:0;left:3px;width:8px;height:20px;background:rgba(255,255,255,0.4);border-radius:4px"></div>
+                    </div>
+                    <!-- Cuerpo del mortero -->
+                    <div class="mortero-body" style="position:absolute;bottom:0;left:10px;width:140px;height:90px;background:linear-gradient(180deg,#F5F5F5,#E8E8E8);border-radius:0 0 70px 70px;border:3px solid #DCDCDC;box-shadow:0 8px 24px rgba(0,0,0,0.08),inset 0 -6px 12px rgba(0,0,0,0.04)">
+                        <!-- Polvo dentro -->
+                        <div style="position:absolute;bottom:4px;left:20px;right:20px;height:36px;border-radius:0 0 50px 50px;background:${colorMortero};opacity:0.7">
+                            <!-- Partículas -->
+                            <div style="position:absolute;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,0.6);top:4px;left:12px;animation:polvoAnim 1.5s 0s infinite ease-in-out"></div>
+                            <div style="position:absolute;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.5);top:8px;right:10px;animation:polvoAnim 1.5s 0.5s infinite ease-in-out"></div>
+                            <div style="position:absolute;width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,0.4);top:2px;left:50%;animation:polvoAnim 1.5s 1s infinite ease-in-out"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Base del mortero -->
+                <div style="width:150px;height:18px;background:linear-gradient(180deg,#E0E0E0,#C8C8C8);border-radius:50%;margin-top:-4px;box-shadow:0 6px 16px rgba(0,0,0,0.08)"></div>
+            </div>`;
+            break;
+
+        case 'hobart':
+            v.appendChild(titulo);
+            v.innerHTML += `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0">
+                <div style="position:relative;width:180px;height:180px">
+                    <!-- Estructura del motor -->
+                    <div style="position:absolute;top:0;left:40px;width:100px;height:80px;background:linear-gradient(180deg,#8B8B8B,#6B6B6B);border-radius:12px 12px 0 0;box-shadow:0 4px 16px rgba(0,0,0,0.2)">
+                        <!-- Luz indicadora -->
+                        <div style="position:absolute;top:12px;right:12px;width:8px;height:8px;border-radius:50%;background:#4ade80;box-shadow:0 0 8px #4ade80;animation:blink 1s infinite"></div>
+                        <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:8px;color:rgba(255,255,255,0.6);font-weight:700;letter-spacing:0.1em">HOBART</div>
+                    </div>
+                    <!-- Gancho mezclador -->
+                    <div style="position:absolute;top:72px;left:85px;width:10px;height:80px;background:linear-gradient(180deg,#999,#777);border-radius:5px;transform-origin:top center" class="girar-anim">
+                        <div style="position:absolute;bottom:0;left:-8px;width:26px;height:26px;border:4px solid #888;border-radius:50%;background:transparent"></div>
+                    </div>
+                    <!-- Bol -->
+                    <div style="position:absolute;bottom:0;left:15px;width:150px;height:90px;background:linear-gradient(180deg,#DCDCDC,#C8C8C8);border-radius:0 0 75px 75px;border:3px solid #C0C0C0;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,0.1)">
+                        <!-- Contenido polvo -->
+                        <div style="position:absolute;bottom:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(231,172,154,0.3),rgba(231,172,154,0.6));border-radius:0 0 70px 70px">
+                            <div style="position:absolute;top:4px;left:20px;width:100%;height:4px;border-radius:2px;background:rgba(255,255,255,0.3);animation:girar 2s linear infinite;transform-origin:left center"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Base del Hobart -->
+                <div style="width:180px;height:20px;background:linear-gradient(180deg,#888,#666);border-radius:0 0 10px 10px;box-shadow:0 6px 16px rgba(0,0,0,0.15)"></div>
+            </div>`;
+            break;
+
+        case 'agitador':
+        case 'agitadorMag': {
+            v.appendChild(titulo);
+            const liqColor = paso.colorLiq || 'rgba(200,230,255,0.5)';
+            v.innerHTML += `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+                <!-- Beaker de laboratorio -->
+                <div style="position:relative;width:110px">
+                    <!-- Pico del beaker -->
+                    <div style="position:absolute;top:0;right:-4px;width:28px;height:18px;background:rgba(200,225,245,0.3);border:2px solid rgba(180,210,235,0.5);border-radius:0 8px 0 0;clip-path:polygon(0 100%,100% 100%,100% 0)"></div>
+                    <!-- Cuerpo beaker -->
+                    <div style="width:100px;height:140px;background:${liqColor};border:2.5px solid rgba(180,210,235,0.7);border-top:none;border-radius:0 0 24px 24px;position:relative;overflow:hidden;box-shadow:inset 2px 0 10px rgba(255,255,255,0.3),0 10px 30px rgba(100,180,240,0.1)">
+                        <!-- Líquido con burbujas -->
+                        <div style="position:absolute;inset:0;background:${liqColor}">
+                            <div class="liquid-bubble" style="width:5px;height:5px;left:20%;bottom:10px;animation-delay:0s"></div>
+                            <div class="liquid-bubble" style="width:4px;height:4px;left:50%;bottom:15px;animation-delay:0.7s"></div>
+                            <div class="liquid-bubble" style="width:6px;height:6px;left:70%;bottom:8px;animation-delay:1.4s"></div>
+                        </div>
+                        <!-- Barra magnética -->
+                        <div class="barra-spin" style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:56px;height:9px;border-radius:5px;background:linear-gradient(90deg,#E8E8E8,#FFFFFF,#E8E8E8);box-shadow:0 2px 8px rgba(0,0,0,0.2)"></div>
+                        <!-- Líneas de medición -->
+                        <div style="position:absolute;right:6px;top:30px;width:12px;height:1px;background:rgba(150,180,200,0.5)"></div>
+                        <div style="position:absolute;right:6px;top:55px;width:12px;height:1px;background:rgba(150,180,200,0.5)"></div>
+                        <div style="position:absolute;right:6px;top:80px;width:12px;height:1px;background:rgba(150,180,200,0.5)"></div>
+                    </div>
+                    <!-- Graduación izquierda -->
+                    <div style="position:absolute;left:-20px;top:20px;font-size:7px;color:rgba(100,150,180,0.7);font-family:'Courier New',monospace">
+                        <div>100</div><div style="margin-top:18px">75</div><div style="margin-top:18px">50</div><div style="margin-top:18px">25</div>
+                    </div>
+                </div>
+                <!-- Base agitador magnético -->
+                <div style="width:130px;height:22px;background:linear-gradient(180deg,#888,#666);border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center">
+                    <div style="width:60px;height:6px;border-radius:3px;background:rgba(255,255,255,0.15)"></div>
+                </div>
+                <div style="font-size:8px;font-weight:700;color:#888;letter-spacing:0.15em;text-transform:uppercase">300 RPM</div>
+            </div>`;
+            break;
+        }
+
+        case 'prensa':
+            v.appendChild(titulo);
+            v.innerHTML += `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0">
+                <div style="position:relative;width:180px;height:240px">
+                    <!-- Marco superior -->
+                    <div style="position:absolute;top:0;left:0;right:0;height:40px;background:linear-gradient(180deg,#5A5A5A,#444);border-radius:12px 12px 0 0;box-shadow:0 4px 12px rgba(0,0,0,0.3)">
+                        <!-- Manómetro -->
+                        <div style="position:absolute;top:6px;right:20px;width:28px;height:28px;border-radius:50%;background:#2A2A2A;border:2px solid #666;display:flex;align-items:center;justify-content:center">
+                            <div style="font-size:7px;color:#4ade80;font-family:'Courier New',monospace;font-weight:800">15</div>
+                        </div>
+                        <div style="position:absolute;top:6px;left:16px;font-size:8px;color:rgba(255,255,255,0.5);font-weight:700;letter-spacing:0.1em">PRENSA</div>
+                    </div>
+                    <!-- Columnas laterales -->
+                    <div style="position:absolute;top:40px;left:10px;width:16px;height:200px;background:linear-gradient(90deg,#888,#AAA,#888);border-radius:4px"></div>
+                    <div style="position:absolute;top:40px;right:10px;width:16px;height:200px;background:linear-gradient(90deg,#888,#AAA,#888);border-radius:4px"></div>
+                    <!-- Pistón -->
+                    <div class="pistón-anim" style="position:absolute;left:36px;width:108px;height:38px;background:linear-gradient(180deg,#A0A0A0,#787878);border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,0.3)">
+                        <div style="position:absolute;inset:4px;background:rgba(255,255,255,0.1);border-radius:4px"></div>
+                    </div>
+                    <!-- Molde rosa (producto) -->
+                    <div style="position:absolute;bottom:10px;left:20px;right:20px">
+                        <div style="height:26px;background:linear-gradient(180deg,#E7AC9A,#D49080);border-radius:6px;box-shadow:0 4px 12px rgba(231,172,154,0.4);display:flex;align-items:center;justify-content:center">
+                            <span style="font-size:8px;font-weight:800;color:white;letter-spacing:0.1em">MOLDE EmmaGlow</span>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+            break;
+
+        case 'banomaria': {
+            v.appendChild(titulo);
+            const enfriando = paso.enfriando;
+            const colTina = enfriando ? 'rgba(180,220,255,0.3)' : 'rgba(255,200,130,0.35)';
+            const colLiq = enfriando ? 'rgba(150,190,240,0.4)' : 'rgba(255,180,80,0.35)';
+            v.innerHTML += `
+            <div style="display:flex;align-items:flex-end;gap:16px">
+                <!-- Termómetro -->
+                <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+                    <div style="font-size:7px;color:#888;font-weight:700;letter-spacing:0.1em">${paso.target}°C</div>
+                    <div style="width:18px;height:100px;background:#EEE;border-radius:9px 9px 12px 12px;border:2px solid #DDD;position:relative;overflow:hidden">
+                        <div style="position:absolute;bottom:0;left:2px;right:2px;height:${enfriando ? '55%' : '75%'};background:${enfriando ? '#7EC8F0' : '#E7AC9A'};border-radius:0 0 10px 10px;transition:height 2s ease"></div>
+                        <div style="position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:12px;height:12px;border-radius:50%;background:${enfriando ? '#7EC8F0' : '#E7AC9A'}"></div>
+                    </div>
+                </div>
+                <!-- Tina baño maría -->
+                <div style="display:flex;flex-direction:column;align-items:center">
+                    <!-- Vapores / frio -->
+                    <div style="display:flex;gap:10px;height:40px;position:relative">
+                        ${enfriando ?
+                          `<div style="font-size:1.4rem;animation:float 2s ease-in-out infinite">❄️</div>
+                           <div style="font-size:1.2rem;animation:float 2s 0.7s ease-in-out infinite">❄️</div>` :
+                          `<div class="vapor" style="left:25%;height:30px;animation-delay:0s"></div>
+                           <div class="vapor" style="left:50%;height:24px;animation-delay:0.7s"></div>
+                           <div class="vapor" style="left:75%;height:28px;animation-delay:1.4s"></div>
+                           <div style="font-size:1.4rem;opacity:0.6;animation:float 2s ease-in-out infinite">♨️</div>`
+                        }
+                    </div>
+                    <!-- Tina exterior -->
+                    <div style="width:200px;height:110px;background:linear-gradient(180deg,#D4D4D4,#B8B8B8);border-radius:0 0 20px 20px;border:3px solid #C4C4C4;position:relative;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.1)">
+                        <!-- Agua interior -->
+                        <div style="position:absolute;inset:12px;background:${colTina};border-radius:0 0 12px 12px;overflow:hidden">
+                            <!-- Beaker con crema -->
+                            <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:80px;height:90px;background:${colLiq};border:2px solid rgba(255,255,255,0.4);border-radius:0 0 16px 16px;overflow:hidden">
+                                <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent,rgba(255,255,255,0.1))"></div>
+                            </div>
+                        </div>
+                        <!-- Resistencia -->
+                        <div style="position:absolute;bottom:6px;left:20px;right:20px;height:6px;background:${enfriando ? '#7EC8F0' : '#FF8C42'};border-radius:3px;opacity:0.7;animation:blink ${enfriando ? '3s' : '0.8s'} infinite"></div>
+                    </div>
+                </div>
+            </div>`;
+            break;
+        }
+
+        case 'samix': {
+            v.appendChild(titulo);
+            const conColor = paso.conColor;
+            const colorSamix = conColor ? 'rgba(251,113,133,0.4)' : 'rgba(200,220,230,0.5)';
+            v.innerHTML += `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0">
+                <!-- Máquina SAMIX -->
+                <div style="position:relative;width:160px;height:200px">
+                    <!-- Cuerpo principal -->
+                    <div style="position:absolute;top:0;left:15px;width:130px;height:130px;background:linear-gradient(160deg,#C8DCE8,#A0B8CC);border-radius:20px 20px 4px 4px;box-shadow:0 8px 24px rgba(100,160,200,0.25),inset 0 2px 8px rgba(255,255,255,0.4)">
+                        <!-- Panel frontal -->
+                        <div style="position:absolute;top:12px;left:12px;right:12px;height:50px;background:rgba(255,255,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;gap:8px">
+                            <div style="width:8px;height:8px;border-radius:50%;background:#4ade80;box-shadow:0 0 8px #4ade80;animation:blink 0.6s infinite"></div>
+                            <div style="font-family:'Courier New',monospace;font-size:10px;color:white;font-weight:800">${paso.target} RPM</div>
+                        </div>
+                        <!-- Perilla control -->
+                        <div style="position:absolute;bottom:12px;right:20px;width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#DDD,#AAA);border:3px solid #888;box-shadow:0 2px 8px rgba(0,0,0,0.2)">
+                            <div style="position:absolute;top:50%;left:50%;width:2px;height:10px;background:#555;transform:translate(-50%,-50%) rotate(45deg);border-radius:1px"></div>
+                        </div>
+                        <div style="position:absolute;bottom:12px;left:20px;font-size:8px;color:rgba(255,255,255,0.7);font-weight:800;letter-spacing:0.1em">SAMIX</div>
+                    </div>
+                    <!-- Brazo mezclador -->
+                    <div style="position:absolute;top:100px;left:65px;width:12px;height:70px;background:linear-gradient(180deg,#888,#666);border-radius:6px;transform-origin:top center" class="girar-anim">
+                        <div style="position:absolute;bottom:0;left:-10px;width:32px;height:32px;border:4px solid #777;border-radius:50%"></div>
+                    </div>
+                    <!-- Bol / Tina -->
+                    <div style="position:absolute;bottom:0;left:0;right:0;height:100px;background:linear-gradient(180deg,#DDD,#C8C8C8);border-radius:0 0 30px 30px;border:3px solid #C0C0C0;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,0.1)">
+                        <!-- Producto en bol -->
+                        <div style="position:absolute;bottom:0;inset-x:0;height:60%;background:${colorSamix};border-radius:0 0 26px 26px;transition:background 1s ease">
+                            <div style="position:absolute;top:6px;left:20%;width:60%;height:6px;border-radius:3px;background:rgba(255,255,255,0.3);animation:girar 1.5s linear infinite;transform-origin:left center"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+            break;
+        }
+
+        case 'filtro':
+            v.appendChild(titulo);
+            v.innerHTML += `
+            <div style="display:flex;align-items:flex-start;gap:20px">
+                <!-- Embudo filtro -->
+                <div style="display:flex;flex-direction:column;align-items:center;gap:0">
+                    <div style="font-size:8px;font-weight:700;color:#888;letter-spacing:0.15em;margin-bottom:4px">FILTRO 0.22µm</div>
+                    <!-- Cuerpo filtro -->
+                    <div style="width:80px;height:100px;background:linear-gradient(180deg,rgba(240,244,248,0.9),rgba(220,230,238,0.9));border-radius:8px 8px 0 0;border:2px solid #C8D4DC;position:relative;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,0.08)">
+                        <div style="position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 6px,rgba(180,200,220,0.15) 6px,rgba(180,200,220,0.15) 7px)"></div>
+                        <!-- Líquido en filtro -->
+                        <div style="position:absolute;bottom:0;inset-x:0;height:60%;background:rgba(244,114,182,0.25);border-radius:0 0 0 0">
+                            <div style="position:absolute;top:0;width:100%;height:2px;background:rgba(244,114,182,0.4)"></div>
+                        </div>
+                    </div>
+                    <!-- Embudo cónico -->
+                    <div style="width:0;height:0;border-left:40px solid transparent;border-right:40px solid transparent;border-top:30px solid rgba(200,215,230,0.8)"></div>
+                    <!-- Tubo salida -->
+                    <div style="width:12px;height:30px;background:linear-gradient(90deg,#B0BEC5,#90A4AE);border-radius:0 0 6px 6px"></div>
+                    <!-- Gotas salida -->
+                    <div style="position:relative;height:30px;width:30px">
+                        <div class="gota" style="position:absolute;left:50%;top:0;width:6px;height:10px;background:rgba(244,114,182,0.5);border-radius:50% 50% 50% 50%/40% 40% 60% 60%;transform:translateX(-50%);animation-delay:0s"></div>
+                        <div class="gota" style="position:absolute;left:50%;top:0;width:5px;height:8px;background:rgba(244,114,182,0.4);border-radius:50% 50% 50% 50%/40% 40% 60% 60%;transform:translateX(-50%);animation-delay:0.8s"></div>
+                    </div>
+                </div>
+                <!-- pH metro -->
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+                    <div style="font-size:8px;font-weight:700;color:#888;letter-spacing:0.1em;text-align:center">pH METRO</div>
+                    <div style="width:60px;height:90px;background:linear-gradient(180deg,#E8F4E8,#C8E4C8);border-radius:10px;border:2px solid #A8CCA8;box-shadow:0 6px 16px rgba(100,160,100,0.1);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
+                        <div style="background:#1A2A1A;border-radius:6px;padding:4px 8px;width:48px;text-align:center">
+                            <span style="font-family:'Courier New',monospace;font-size:1rem;color:#4ade80;font-weight:700">6.80</span>
+                        </div>
+                        <div style="font-size:7px;color:#4A8A4A;font-weight:700">pH OK ✓</div>
+                    </div>
+                    <!-- Electrodo -->
+                    <div style="width:8px;height:50px;background:linear-gradient(180deg,#888,#666);border-radius:4px"></div>
+                    <div style="width:14px;height:14px;border-radius:50%;background:rgba(244,114,182,0.4);border:2px solid rgba(244,114,182,0.5)"></div>
+                </div>
+            </div>`;
+            break;
+
+        case 'beaker': {
+            v.appendChild(titulo);
+            const bColor = paso.colorLiq || 'rgba(200,230,255,0.4)';
+            v.innerHTML += `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+                <!-- Beaker grande -->
+                <div style="position:relative;width:130px">
+                    <!-- Pico -->
+                    <div style="position:absolute;top:-2px;right:-6px;width:0;height:0;border-left:16px solid rgba(180,210,235,0.5);border-top:16px solid transparent;border-bottom:0;filter:drop-shadow(0 2px 4px rgba(100,160,200,0.2))"></div>
+                    <!-- Cuerpo -->
+                    <div style="width:120px;height:160px;background:${bColor};border:2.5px solid rgba(180,210,235,0.7);border-top:3px solid rgba(180,210,235,0.8);border-radius:6px 6px 20px 20px;position:relative;overflow:hidden;box-shadow:inset 3px 0 12px rgba(255,255,255,0.4),0 12px 30px rgba(100,180,240,0.12)">
+                        <!-- Reflejo -->
+                        <div style="position:absolute;left:6px;top:10px;width:8px;height:60px;background:rgba(255,255,255,0.3);border-radius:4px;transform:rotate(-8deg)"></div>
+                        <!-- Medidas -->
+                        <div style="position:absolute;right:8px;top:20px;font-size:7px;color:rgba(100,140,180,0.7);font-family:'Courier New',monospace;line-height:1.8">
+                            <div>150</div><div>100</div><div>50</div>
+                        </div>
+                        <div style="position:absolute;right:20px;top:20px;width:10px;height:1px;background:rgba(150,180,210,0.5)"></div>
+                        <div style="position:absolute;right:20px;top:56px;width:10px;height:1px;background:rgba(150,180,210,0.5)"></div>
+                        <div style="position:absolute;right:20px;top:92px;width:10px;height:1px;background:rgba(150,180,210,0.5)"></div>
+                        <!-- Líquido fill -->
+                        <div style="position:absolute;bottom:0;inset-x:0;height:70%;background:${bColor};border-radius:0 0 18px 18px">
+                            <div class="liquid-bubble" style="width:6px;height:6px;left:25%;bottom:10px;animation-delay:0s"></div>
+                            <div class="liquid-bubble" style="width:4px;height:4px;left:60%;bottom:20px;animation-delay:1s"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Soporte -->
+                <div style="width:140px;height:12px;background:linear-gradient(180deg,#C8C8C8,#A8A8A8);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.08)"></div>
+            </div>`;
+            break;
+        }
+
+        case 'envasadora':
+            v.appendChild(titulo);
+            v.innerHTML += `
+            <div style="display:flex;align-items:flex-end;gap:16px">
+                <!-- Máquina envasadora -->
+                <div style="display:flex;flex-direction:column;align-items:center;gap:0">
+                    <!-- Tolva / tanque -->
+                    <div style="width:100px;height:80px;background:linear-gradient(180deg,#C8C8C8,#A8A8A8);border-radius:12px 12px 4px 4px;border:2px solid #B8B8B8;position:relative;overflow:hidden;box-shadow:0 6px 16px rgba(0,0,0,0.1)">
+                        <div style="position:absolute;inset:8px;background:rgba(251,113,133,0.3);border-radius:8px">
+                            <div style="position:absolute;top:4px;left:4px;right:4px;height:3px;background:rgba(255,255,255,0.4);border-radius:2px"></div>
+                        </div>
+                        <div style="position:absolute;bottom:4px;right:8px;font-size:7px;color:rgba(255,255,255,0.7);font-weight:700;letter-spacing:0.1em">40°C</div>
+                    </div>
+                    <!-- Tubo dispensador -->
+                    <div style="width:20px;height:40px;background:linear-gradient(90deg,#A0A0A0,#808080);border-radius:0 0 4px 4px"></div>
+                    <!-- Boquilla -->
+                    <div style="width:30px;height:14px;background:linear-gradient(180deg,#888,#666);border-radius:4px;position:relative">
+                        <!-- Chorro -->
+                        <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:-16px;width:4px;height:16px;background:rgba(251,113,133,0.6);border-radius:2px;animation:blink 0.5s infinite"></div>
+                    </div>
+                </div>
+                <!-- Frascos -->
+                <div style="display:flex;gap:8px;align-items:flex-end">
+                    <!-- Frasco lleno -->
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+                        <div style="width:10px;height:14px;background:linear-gradient(180deg,#D4D4D4,#B8B8B8);border-radius:4px 4px 0 0"></div>
+                        <div style="width:54px;height:80px;background:linear-gradient(160deg,rgba(255,255,255,0.6),rgba(240,210,210,0.4));border:2px solid rgba(231,172,154,0.4);border-radius:10px 10px 16px 16px;position:relative;overflow:hidden">
+                            <div style="position:absolute;bottom:0;inset-x:0;height:85%;background:rgba(251,113,133,0.35);border-radius:0 0 14px 14px"></div>
+                            <div style="position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,0.3) 0%,transparent 60%)"></div>
+                        </div>
+                    </div>
+                    <!-- Frasco medio -->
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+                        <div style="width:10px;height:14px;background:linear-gradient(180deg,#D4D4D4,#B8B8B8);border-radius:4px 4px 0 0"></div>
+                        <div style="width:54px;height:80px;background:linear-gradient(160deg,rgba(255,255,255,0.6),rgba(240,210,210,0.4));border:2px solid rgba(231,172,154,0.4);border-radius:10px 10px 16px 16px;position:relative;overflow:hidden">
+                            <div style="position:absolute;bottom:0;inset-x:0;height:50%;background:rgba(251,113,133,0.3);border-radius:0 0 14px 14px;animation:llenar 3s ease forwards"></div>
+                            <div style="position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,0.3) 0%,transparent 60%)"></div>
+                        </div>
+                    </div>
+                    <!-- Frasco vacío -->
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+                        <div style="width:10px;height:14px;background:linear-gradient(180deg,#D4D4D4,#B8B8B8);border-radius:4px 4px 0 0"></div>
+                        <div style="width:54px;height:80px;background:linear-gradient(160deg,rgba(255,255,255,0.5),rgba(240,210,210,0.2));border:2px solid rgba(231,172,154,0.3);border-radius:10px 10px 16px 16px;position:relative;overflow:hidden">
+                            <div style="position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,0.3) 0%,transparent 60%)"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+            break;
+
+        default:
+            v.innerHTML = `<div style="font-size:5rem;animation:float 2s ease-in-out infinite">✨</div>`;
+    }
+}
+
+/* ========================================================
+   RENDER LISTA DE PASOS
+   ======================================================== */
+function renderPasos() {
+    const list = document.getElementById('lista-pasos');
+    list.innerHTML = '';
+    config.pasos.forEach((p, i) => {
+        const div = document.createElement('div');
+        const isActive = i === indexPaso;
+        const isDone = i < indexPaso;
+
+        div.className = `paso-item ${isActive ? 'paso-active' : isDone ? 'paso-done' : 'paso-pending'}`;
+
+        const numColor = isActive ? config.color : isDone ? '#86efac' : '#D4D4D4';
+        const numBg = isActive ? `rgba(${config.colorRGB},0.12)` : isDone ? 'rgba(134,239,172,0.12)' : 'rgba(200,200,200,0.1)';
+
+        div.innerHTML = `
+            <div style="display:flex;align-items:center;gap:10px">
+                <div class="numero-paso" style="background:${numBg};color:${numColor};border:1.5px solid ${numColor}">
+                    ${isDone ? '✓' : (i + 1)}
+                </div>
+                <div style="flex:1">
+                    <p style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:#B0B0B0;margin:0 0 2px">Paso ${i+1} · ${p.maquina}</p>
+                    <p style="font-size:11px;font-weight:700;color:${isActive ? '#2D1B1B' : '#9CA3AF'};margin:0">${p.nombre}</p>
+                </div>
+            </div>
+        `;
+        list.appendChild(div);
+    });
+}
+
+/* ========================================================
+   VALIDAR PASO
+   ======================================================== */
+function validarPaso() {
+    const paso = config.pasos[indexPaso];
+    const input = document.getElementById('valor-input');
+    const val = parseFloat(input.value);
+
+    if (isNaN(val)) {
+        agitarInput();
+        return;
+    }
+
+    const diff = Math.abs(val - paso.target);
+
+    if (diff <= paso.tolerancia) {
+        // ✅ Correcto
+        mostrarFeedback('✓ ' + paso.nombre + ' completado');
+        indexPaso++;
+
+        if (indexPaso >= config.pasos.length) {
+            setTimeout(mostrarFinal, 600);
+        } else {
+            setTimeout(actualizarEscena, 400);
+        }
+    } else {
+        // ❌ Error
+        const penalidad = Math.min(diff * 3, 15);
+        errorAcumulado += penalidad;
+        calidad = Math.max(0, 100 - errorAcumulado);
+
+        const pct = calidad.toFixed(0);
+        document.getElementById('calidad-display').textContent = pct + '%';
+        const fill = document.getElementById('calidad-fill');
+        fill.style.width = pct + '%';
+        fill.className = 'calidad-fill' + (calidad < 70 ? ' danger' : calidad < 85 ? ' warn' : '');
+
+        agitarInput();
+        input.value = '';
+    }
+}
+
+function agitarInput() {
+    const area = document.getElementById('input-area');
+    area.classList.add('shake');
+    area.style.boxShadow = 'inset 0 0 20px rgba(239,68,68,0.4), 0 4px 20px rgba(0,0,0,0.15)';
+    setTimeout(() => {
+        area.classList.remove('shake');
+        area.style.boxShadow = '';
+    }, 600);
+}
+
+function mostrarFeedback(msg) {
+    const el = document.createElement('div');
+    el.className = 'feedback-ok';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1100);
+}
+
+/* ========================================================
+   MODAL FINAL (EMPAQUE)
+   ======================================================== */
+function mostrarFinal() {
+    const modal = document.getElementById('final-modal');
+    modal.style.display = 'flex';
+
+    document.getElementById('final-desc').textContent = config.finalDesc;
+
+    const c = document.getElementById('empaque-container');
+    c.innerHTML = '';
+
+    const tipo = config.empaqueTipo;
+    const color = config.color;
+    const rgb = config.colorRGB;
+
+    if (tipo === 'compacto') {
+        c.innerHTML = `
+        <div class="empaque-visual" style="perspective:600px">
+            <!-- Caja exterior -->
+            <div style="position:absolute;inset:0;background:linear-gradient(135deg,#FDF0EC,#F8E0D8);border-radius:20px;border:1.5px solid rgba(231,172,154,0.3);box-shadow:0 30px 60px rgba(231,172,154,0.25),0 8px 24px rgba(231,172,154,0.15)"></div>
+            <!-- Franja decorativa -->
+            <div style="position:absolute;top:0;left:0;right:0;height:90px;background:linear-gradient(135deg,${color},#D49080);border-radius:18px 18px 0 0;overflow:hidden">
+                <div style="position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 10px,rgba(255,255,255,0.06) 10px,rgba(255,255,255,0.06) 20px)"></div>
+                <div style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:8px;font-weight:700;letter-spacing:0.3em;color:rgba(255,255,255,0.8);text-transform:uppercase">Rubor en Polvo</div>
+            </div>
+            <!-- Logo -->
+            <div style="position:absolute;top:100px;left:50%;transform:translateX(-50%);text-align:center">
+                <div style="font-family:'Cormorant Garamond',serif;font-size:2.2rem;color:${color};line-height:1">EmmaGlow</div>
+                <div style="font-size:7px;letter-spacing:0.3em;color:#B0A0A0;text-transform:uppercase;margin-top:4px">BHA Pore-Refining</div>
+            </div>
+            <!-- Compact circular -->
+            <div style="position:absolute;bottom:36px;left:50%;transform:translateX(-50%);width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,rgba(${rgb},0.8),rgba(${rgb},0.5));box-shadow:0 8px 24px rgba(${rgb},0.3),inset 0 2px 8px rgba(255,255,255,0.4);border:3px solid rgba(255,255,255,0.5)">
+                <div style="position:absolute;inset:8px;border-radius:50%;background:linear-gradient(135deg,rgba(255,255,255,0.3),rgba(${rgb},0.6))"></div>
+            </div>
+            <!-- Estrella QC -->
+            <div style="position:absolute;bottom:20px;right:20px;font-size:18px">✓</div>
+        </div>`;
+
+    } else if (tipo === 'liquido') {
+        c.innerHTML = `
+        <div class="empaque-visual">
+            <!-- Frasco gotero -->
+            <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:0;width:100px;height:200px;display:flex;flex-direction:column;align-items:center">
+                <!-- Tapa -->
+                <div style="width:30px;height:40px;background:linear-gradient(180deg,#2D1B1B,#4A3030);border-radius:6px 6px 0 0;box-shadow:0 4px 12px rgba(0,0,0,0.2)"></div>
+                <!-- Cuerpo frasco -->
+                <div style="width:80px;height:160px;background:linear-gradient(160deg,rgba(255,255,255,0.7),rgba(255,210,220,0.5));border:2px solid rgba(244,114,182,0.4);border-radius:10px 10px 18px 18px;position:relative;overflow:hidden;box-shadow:0 16px 40px rgba(244,114,182,0.2),inset 4px 0 12px rgba(255,255,255,0.4)">
+                    <!-- Líquido -->
+                    <div style="position:absolute;bottom:0;inset-x:0;height:80%;background:linear-gradient(180deg,rgba(244,114,182,0.25),rgba(244,114,182,0.45));border-radius:0 0 16px 16px"></div>
+                    <!-- Reflejo -->
+                    <div style="position:absolute;top:10px;left:8px;width:10px;height:50px;background:rgba(255,255,255,0.4);border-radius:5px;transform:rotate(-10deg)"></div>
+                    <!-- Etiqueta -->
+                    <div style="position:absolute;top:20px;left:8px;right:8px;background:rgba(255,255,255,0.85);border-radius:8px;padding:8px;text-align:center">
+                        <div style="font-family:'Cormorant Garamond',serif;font-size:1rem;color:#E7AC9A;line-height:1">EmmaGlow</div>
+                        <div style="font-size:6px;letter-spacing:0.2em;color:#B0A0A0;text-transform:uppercase;margin-top:2px">Rubor Líquido</div>
+                        <div style="font-size:5px;letter-spacing:0.1em;color:#D4B0C0;margin-top:2px">Niacinamide 4%</div>
+                    </div>
+                </div>
+            </div>
+            <!-- Destellos -->
+            <div style="position:absolute;top:10px;right:20px;font-size:1.5rem;animation:float 2s ease-in-out infinite">✨</div>
+            <div style="position:absolute;top:40px;left:20px;font-size:1rem;animation:float 2s 1s ease-in-out infinite">💧</div>
+        </div>`;
+
+    } else if (tipo === 'crema') {
+        c.innerHTML = `
+        <div class="empaque-visual">
+            <!-- Tarro crema -->
+            <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:20px;width:160px;height:100px">
+                <!-- Tapa -->
+                <div style="width:160px;height:35px;background:linear-gradient(180deg,#2D1B1B,#4A3030);border-radius:80px 80px 0 0;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,0.2)">
+                    <span style="font-family:'Cormorant Garamond',serif;font-size:0.85rem;color:rgba(231,172,154,0.9);letter-spacing:0.2em">EmmaGlow</span>
+                </div>
+                <!-- Base del tarro -->
+                <div style="width:160px;height:70px;background:linear-gradient(180deg,#FDE8E4,#F8D8D0);border-radius:0 0 80px 80px;border:1.5px solid rgba(251,113,133,0.25);position:relative;overflow:hidden;box-shadow:0 16px 40px rgba(251,113,133,0.2)">
+                    <!-- Crema interior -->
+                    <div style="position:absolute;top:8px;left:12px;right:12px;bottom:8px;background:linear-gradient(135deg,rgba(255,200,200,0.6),rgba(251,113,133,0.3));border-radius:60px;border:1px solid rgba(255,255,255,0.4)"></div>
+                    <!-- Etiqueta lateral -->
+                    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+                        <div style="text-align:center">
+                            <div style="font-size:7px;letter-spacing:0.2em;color:rgba(251,113,133,0.8);text-transform:uppercase;font-weight:700">Tea Tree · Antibacterial</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Decoración -->
+            <div style="position:absolute;top:10px;left:20px;font-size:2rem;animation:float 2s ease-in-out infinite">🌿</div>
+            <div style="position:absolute;top:20px;right:15px;font-size:1.5rem;animation:float 2s 0.8s ease-in-out infinite">✨</div>
+            <!-- Sello QC -->
+            <div style="position:absolute;top:0;right:10px;width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,${color},#D06070);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(${rgb},0.35)">
+                <div style="text-align:center">
+                    <div style="font-size:7px;font-weight:800;color:white;letter-spacing:0.1em">QC</div>
+                    <div style="font-size:10px;color:white">✓</div>
+                </div>
+            </div>
+        </div>`;
+    } else if (tipo === 'bioblush') {
+        c.innerHTML = `
+        <div class="empaque-visual" style="perspective:600px">
+            <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:10px">
+                <div style="width:170px;height:32px;background:linear-gradient(180deg,#1A0A0F,#3D1020);border-radius:14px 14px 0 0;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,0.3);position:relative">
+                    <span style="font-family:'Cormorant Garamond',serif;font-size:0.9rem;color:rgba(232,80,122,0.9);letter-spacing:0.25em">EmmaGlow</span>
+                </div>
+                <div style="width:170px;height:110px;background:linear-gradient(160deg,#FFF0F3,#FFD6E0);border:2px solid rgba(232,80,122,0.2);border-top:none;border-radius:0 0 85px 85px;position:relative;overflow:hidden;box-shadow:0 20px 50px rgba(232,80,122,0.25)">
+                    <div style="position:absolute;bottom:0;inset-x:0;height:75%;background:linear-gradient(160deg,rgba(232,80,122,0.15),rgba(232,80,122,0.35));border-radius:0 0 80px 80px"></div>
+                    <div style="position:absolute;top:22px;left:18px;right:18px;text-align:center">
+                        <div style="font-size:6px;font-weight:800;letter-spacing:0.3em;color:rgba(232,80,122,0.7);text-transform:uppercase">Rosa Sandía</div>
+                        <div style="font-size:5px;letter-spacing:0.15em;color:rgba(100,60,70,0.5);margin-top:3px">Niacinamida · Resveratrol · Centella</div>
+                        <div style="font-size:5px;color:rgba(100,60,70,0.4);margin-top:2px">pH 5.5 · 5°C – 50°C · BB-FINAL-COL-2026</div>
+                    </div>
+                    <div style="position:absolute;top:10px;left:14px;width:12px;height:55px;background:rgba(255,255,255,0.35);border-radius:6px;transform:rotate(-12deg)"></div>
+                </div>
+            </div>
+            <div style="position:absolute;top:5px;left:10px;font-size:2rem;animation:float 2s ease-in-out infinite">🍉</div>
+            <div style="position:absolute;top:30px;right:10px;font-size:1.4rem;animation:float 2.5s 0.6s ease-in-out infinite">🌸</div>
+            <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#E8507A,#B02050);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(232,80,122,0.45);animation:aparecer 1s 0.3s cubic-bezier(0.34,1.56,0.64,1) both">
+                <div style="text-align:center"><div style="font-size:6px;font-weight:900;color:white;letter-spacing:0.15em">BIO</div><div style="font-size:6px;font-weight:900;color:white">BLUSH</div><div style="font-size:9px;color:rgba(255,255,255,0.9)">✓</div></div>
+            </div>
+        </div>`;
+    }
+
+    // Confetti
+    lanzarConfetti();
+}
+
+function lanzarConfetti() {
+    const colors = ['#E7AC9A','#F472B6','#FB7185','#FDE68A','#A7F3D0','#C4B5FD'];
+    for (let i = 0; i < 60; i++) {
+        setTimeout(() => {
+            const el = document.createElement('div');
+            el.className = 'confetti';
+            el.style.cssText = `
+                left:${Math.random()*100}vw;
+                top:-10px;
+                background:${colors[Math.floor(Math.random()*colors.length)]};
+                width:${6+Math.random()*8}px;
+                height:${6+Math.random()*8}px;
+                border-radius:${Math.random()>0.5?'50%':'2px'};
+                animation-duration:${2+Math.random()*2}s;
+                animation-delay:0s;
+            `;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 4000);
+        }, i * 60);
+    }
+}
+
+/* ========================================================
+   KEYBOARD
+   ======================================================== */
+document.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && document.getElementById('lab-ui').style.display === 'flex') {
+        validarPaso();
+    }
+});
+
+/* CSS extra para float */
+const st = document.createElement('style');
+st.textContent = `@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }`;
+document.head.appendChild(st);
+
+/* ========================================================
+   ANALIZADOR IA
+   ======================================================== */
+function abrirAnalizador() {
+    document.getElementById('analyzer-modal').style.display = 'flex';
+}
+function cerrarAnalizador() {
+    document.getElementById('analyzer-modal').style.display = 'none';
+    document.getElementById('analyzer-results').style.display = 'none';
+    document.getElementById('analyzer-upload-area').style.display = 'flex';
+    document.getElementById('analyzer-btn').style.display = 'flex';
+    document.getElementById('file-name-display').textContent = 'Ningún archivo seleccionado';
+    document.getElementById('pdf-file-input').value = '';
+    window._pdfBase64 = null;
+}
+
+function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    document.getElementById('file-name-display').textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        window._pdfBase64 = ev.target.result.split(',')[1];
+        document.getElementById('analyzer-btn-inner').style.opacity = '1';
+        document.getElementById('analyzer-btn-inner').style.pointerEvents = 'auto';
+    };
+    reader.readAsDataURL(file);
+}
+
+async function analizarFormula() {
+    if (!window._pdfBase64) {
+        alert('Por favor, sube un PDF primero.');
+        return;
+    }
+    const btn = document.getElementById('analyzer-btn-inner');
+    btn.innerHTML = '<span style="animation:blink 0.8s infinite">⏳</span>&nbsp; Analizando con IA...';
+    btn.style.opacity = '0.7';
+    btn.style.pointerEvents = 'none';
+
+    const prompt = `Eres un experto en formulación cosmética especializado en productos para piel con acné (rubores, sérums, cremas, bases, mascarillas, correctores, etc). Analiza la fórmula cosmética en el documento PDF adjunto y responde ÚNICAMENTE con un objeto JSON válido (sin texto extra, sin markdown, sin backticks) con esta estructura exacta:
+{
+  "veredicto": "SÍ|NO|PARCIALMENTE",
+  "puntaje": 85,
+  "resumen": "Resumen ejecutivo de 2-3 oraciones sobre si la fórmula funciona para acné",
+  "tipoProducto": "Nombre del tipo de producto (rubor, sérum, etc.)",
+  "ingredientesActivos": [
+    {"nombre": "...", "funcion": "...", "eficaciaAcne": "ALTA|MEDIA|BAJA", "observacion": "..."}
+  ],
+  "incompatibilidades": [
+    {"ingrediente1": "...", "ingrediente2": "...", "problema": "Explicación química detallada", "gravedad": "ALTA|MEDIA|BAJA"}
+  ],
+  "fortalezas": ["...", "..."],
+  "debilidades": ["...", "..."],
+  "analisisEconomico": {
+    "tieneProblemasGraves": true,
+    "costoIngredientesPorEnvase_USD": 2.50,
+    "descripcionCosto": "Desglose aproximado de costos por ingrediente principal",
+    "perdidaTotal45k_USD": 112500,
+    "perdidaTotal45k_COP": 450000000,
+    "explicacionPerdida": "Qué parte de la fórmula causaría el desperdicio y por qué",
+    "recomendacion": "Qué cambiar para salvar la producción"
+  }
+}
+
+IMPORTANTE: Si la fórmula NO tiene problemas graves, coloca tieneProblemasGraves: false y pon 0 en los campos de pérdida. Sé específico con la química: explica reacciones, incompatibilidades de pH, oxidación, etc. Para el análisis económico usa precios de referencia del mercado latinoamericano (Colombia/México) para ingredientes cosméticos a escala industrial.`;
+
+    try {
+        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                model: 'claude-sonnet-4-20250514',
+                max_tokens: 2500,
+                messages: [{
+                    role: 'user',
+                    content: [
+                        {type: 'document', source: {type: 'base64', media_type: 'application/pdf', data: window._pdfBase64}},
+                        {type: 'text', text: prompt}
+                    ]
+                }]
+            })
+        });
+        const data = await resp.json();
+        const raw = data.content.map(b => b.text || '').join('');
+        let analysis;
+        try {
+            analysis = JSON.parse(raw.replace(/```json|```/g, '').trim());
+        } catch(e) {
+            const match = raw.match(/\{[\s\S]*\}/);
+            if (match) analysis = JSON.parse(match[0]);
+            else throw new Error('No se pudo parsear la respuesta IA');
+        }
+        mostrarResultados(analysis);
+    } catch(err) {
+        btn.innerHTML = '🔬 &nbsp; Analizar Fórmula con IA';
+        btn.style.opacity = '1';
+        btn.style.pointerEvents = 'auto';
+        alert('Error al analizar: ' + err.message);
+    }
+}
+
+function mostrarResultados(a) {
+    document.getElementById('analyzer-upload-area').style.display = 'none';
+    document.getElementById('analyzer-btn').style.display = 'none';
+    const res = document.getElementById('analyzer-results');
+    res.style.display = 'block';
+
+    const vColor = a.veredicto === 'SÍ' ? '#22c55e' : a.veredicto === 'NO' ? '#ef4444' : '#f59e0b';
+    const vIcon  = a.veredicto === 'SÍ' ? '✅' : a.veredicto === 'NO' ? '❌' : '⚠️';
+    const barColor = a.puntaje >= 75 ? '#22c55e' : a.puntaje >= 50 ? '#f59e0b' : '#ef4444';
+
+    const incompat = (a.incompatibilidades || []).map(i => {
+        const gc = i.gravedad === 'ALTA' ? '#ef4444' : i.gravedad === 'MEDIA' ? '#f59e0b' : '#6b7280';
+        return `<div style="background:rgba(0,0,0,0.04);border-left:3px solid ${gc};border-radius:8px;padding:12px 14px;margin-bottom:8px">
+            <div style="font-size:10px;font-weight:800;color:${gc};letter-spacing:0.1em;margin-bottom:4px">⚗️ ${i.ingrediente1} + ${i.ingrediente2} — ${i.gravedad}</div>
+            <div style="font-size:11px;color:#4A4A4A;line-height:1.5">${i.problema}</div>
+        </div>`;
+    }).join('') || '<p style="font-size:11px;color:#22c55e;font-weight:600">✅ Sin incompatibilidades químicas detectadas</p>';
+
+    const activos = (a.ingredientesActivos || []).map(ing => {
+        const ec = ing.eficaciaAcne === 'ALTA' ? '#22c55e' : ing.eficaciaAcne === 'MEDIA' ? '#f59e0b' : '#ef4444';
+        return `<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:8px;padding:10px;background:rgba(0,0,0,0.03);border-radius:8px">
+            <div style="min-width:48px;text-align:center;background:${ec}22;border:1.5px solid ${ec}44;border-radius:6px;padding:3px 0">
+                <div style="font-size:7px;font-weight:800;color:${ec};text-transform:uppercase">${ing.eficaciaAcne}</div>
+            </div>
+            <div><div style="font-size:11px;font-weight:700;color:#2D1B1B">${ing.nombre}</div>
+            <div style="font-size:9px;color:#888;margin-top:1px">${ing.funcion}</div>
+            <div style="font-size:10px;color:#555;margin-top:3px">${ing.observacion}</div></div>
+        </div>`;
+    }).join('');
+
+    const econ = a.analisisEconomico || {};
+    const econHTML = econ.tieneProblemasGraves ? `
+        <div style="background:linear-gradient(135deg,rgba(239,68,68,0.06),rgba(239,68,68,0.02));border:1.5px solid rgba(239,68,68,0.2);border-radius:16px;padding:20px;margin-top:8px">
+            <p style="font-size:10px;font-weight:800;letter-spacing:0.15em;text-transform:uppercase;color:#ef4444;margin-bottom:12px">💸 Impacto Económico · 45.000 Envases</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+                <div style="text-align:center;background:rgba(239,68,68,0.08);border-radius:10px;padding:12px">
+                    <div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:0.1em">Costo por Envase</div>
+                    <div style="font-size:1.6rem;font-weight:800;color:#ef4444;font-family:'Courier New',monospace">$${(econ.costoIngredientesPorEnvase_USD||0).toFixed(2)}</div>
+                    <div style="font-size:8px;color:#aaa">USD</div>
+                </div>
+                <div style="text-align:center;background:rgba(239,68,68,0.08);border-radius:10px;padding:12px">
+                    <div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:0.1em">Pérdida Total USD</div>
+                    <div style="font-size:1.6rem;font-weight:800;color:#ef4444;font-family:'Courier New',monospace">$${((econ.perdidaTotal45k_USD||0)/1000).toFixed(0)}K</div>
+                    <div style="font-size:8px;color:#aaa">≈ ${econ.perdidaTotal45k_COP ? '$'+Math.round((econ.perdidaTotal45k_COP||0)/1e6)+'M COP' : 'N/A'}</div>
+                </div>
+            </div>
+            <div style="font-size:10px;color:#666;line-height:1.6;margin-bottom:8px"><b>Desglose:</b> ${econ.descripcionCosto||''}</div>
+            <div style="font-size:10px;color:#555;line-height:1.6;margin-bottom:8px">⚠️ ${econ.explicacionPerdida||''}</div>
+            ${econ.recomendacion ? `<div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:8px;padding:10px;font-size:10px;color:#15803d;line-height:1.5"><b>💡 Recomendación:</b> ${econ.recomendacion}</div>` : ''}
+        </div>` : `<div style="background:rgba(34,197,94,0.06);border:1.5px solid rgba(34,197,94,0.2);border-radius:12px;padding:14px;margin-top:8px"><p style="font-size:11px;color:#15803d;font-weight:600">✅ La fórmula no presenta problemas graves. Pérdida económica proyectada: $0 USD en producción de 45.000 unidades.</p></div>`;
+
+    res.innerHTML = `
+    <div style="overflow-y:auto;max-height:68vh;padding-right:4px">
+        <!-- Veredicto principal -->
+        <div style="text-align:center;margin-bottom:20px;padding:20px;background:${vColor}11;border:2px solid ${vColor}33;border-radius:20px">
+            <div style="font-size:2.5rem;margin-bottom:6px">${vIcon}</div>
+            <div style="font-family:'Cormorant Garamond',serif;font-size:2rem;color:${vColor};line-height:1">${a.veredicto}</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:${vColor};opacity:0.7;margin-top:4px">para piel con acné · ${a.tipoProducto||'Producto cosmético'}</div>
+            <div style="margin:12px auto 0;width:200px;height:6px;background:rgba(0,0,0,0.08);border-radius:3px;overflow:hidden">
+                <div style="height:100%;width:${a.puntaje||0}%;background:${barColor};border-radius:3px;transition:width 1s ease"></div>
+            </div>
+            <div style="font-size:11px;color:${barColor};font-weight:800;margin-top:4px">${a.puntaje||0}/100</div>
+        </div>
+
+        <!-- Resumen -->
+        <div style="background:rgba(255,255,255,0.8);border-radius:14px;padding:14px 16px;margin-bottom:14px;border:1px solid rgba(231,172,154,0.2)">
+            <p style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.15em;margin-bottom:6px">📋 Resumen Ejecutivo</p>
+            <p style="font-size:12px;color:#4A4A4A;line-height:1.65">${a.resumen||''}</p>
+        </div>
+
+        <!-- Ingredientes activos -->
+        <div style="margin-bottom:14px">
+            <p style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.15em;margin-bottom:8px">🧪 Ingredientes Activos</p>
+            ${activos}
+        </div>
+
+        <!-- Fortalezas y debilidades -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.15);border-radius:12px;padding:12px">
+                <p style="font-size:9px;font-weight:800;color:#15803d;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">✅ Fortalezas</p>
+                ${(a.fortalezas||[]).map(f=>`<p style="font-size:10px;color:#166534;margin-bottom:4px;line-height:1.4">• ${f}</p>`).join('')}
+            </div>
+            <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:12px;padding:12px">
+                <p style="font-size:9px;font-weight:800;color:#dc2626;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">⚠️ Debilidades</p>
+                ${(a.debilidades||[]).map(d=>`<p style="font-size:10px;color:#991b1b;margin-bottom:4px;line-height:1.4">• ${d}</p>`).join('')}
+            </div>
+        </div>
+
+        <!-- Incompatibilidades -->
+        <div style="margin-bottom:14px">
+            <p style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.15em;margin-bottom:8px">⚗️ Incompatibilidades Químicas</p>
+            ${incompat}
+        </div>
+
+        <!-- Análisis económico -->
+        <div>
+            <p style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.15em;margin-bottom:4px">💰 Análisis Económico · Producción 45.000 Unidades</p>
+            ${econHTML}
+        </div>
+
+        <!-- Botón nueva -->
+        <div style="text-align:center;margin-top:20px">
+            <button onclick="cerrarAnalizador()" style="background:#2D1B1B;color:white;border:none;padding:12px 28px;border-radius:50px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;transition:all 0.3s" onmouseover="this.style.background='#E7AC9A'" onmouseout="this.style.background='#2D1B1B'">
+                ← Volver al Laboratorio
+            </button>
+        </div>
+    </div>`;
+}
+
+</script>
+
+<!-- ===== MODAL ANALIZADOR IA ===== -->
+<div id="analyzer-modal" style="display:none;position:fixed;inset:0;z-index:600;background:linear-gradient(160deg,#FDF4F2 0%,#FDE8E2 100%);flex-direction:column;align-items:center;justify-content:flex-start;padding:40px 24px;overflow-y:auto">
+    <div style="width:100%;max-width:680px">
+        <!-- Header -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px">
+            <div>
+                <p style="font-size:9px;font-weight:700;letter-spacing:0.4em;text-transform:uppercase;color:#E7AC9A;margin-bottom:4px">IA Experta · Formulación Cosmética</p>
+                <h2 style="font-family:'Cormorant Garamond',serif;font-size:2.8rem;color:#2D1B1B;line-height:1">Analizador de Fórmulas</h2>
+                <p style="font-size:10px;color:#9CA3AF;margin-top:4px">Sube cualquier fórmula en PDF — rubor, sérum, crema, base, mascarilla, corrector…</p>
+            </div>
+            <button onclick="cerrarAnalizador()" style="background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:10px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;display:flex;align-items:center;gap:6px;transition:color 0.2s" onmouseover="this.style.color='#E7AC9A'" onmouseout="this.style.color='#9CA3AF'">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                Volver
+            </button>
+        </div>
+
+        <!-- Upload area -->
+        <div id="analyzer-upload-area" style="display:flex;flex-direction:column;align-items:center;gap:16px;background:rgba(255,255,255,0.8);backdrop-filter:blur(12px);border-radius:28px;border:2px dashed rgba(231,172,154,0.4);padding:40px;margin-bottom:16px;text-align:center;transition:border-color 0.3s" onmouseover="this.style.borderColor='rgba(232,80,122,0.5)'" onmouseout="this.style.borderColor='rgba(231,172,154,0.4)'">
+            <div style="font-size:3rem">📄</div>
+            <div>
+                <p style="font-size:14px;font-weight:600;color:#4A4A4A;margin-bottom:4px">Sube tu fórmula en PDF</p>
+                <p style="font-size:10px;color:#9CA3AF">Ficha técnica, guía de laboratorio, balance de materia — cualquier formato</p>
+            </div>
+            <label style="background:#2D1B1B;color:white;border:none;padding:12px 28px;border-radius:50px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;transition:all 0.3s;display:inline-block" onmouseover="this.style.background='#E8507A'" onmouseout="this.style.background='#2D1B1B'">
+                📎 &nbsp; Seleccionar PDF
+                <input type="file" id="pdf-file-input" accept=".pdf" style="display:none" onchange="handleFileSelect(event)">
+            </label>
+            <p id="file-name-display" style="font-size:10px;color:#B0B0B0;font-style:italic">Ningún archivo seleccionado</p>
+        </div>
+
+        <!-- Analyze button -->
+        <div id="analyzer-btn" style="display:flex;justify-content:center;margin-bottom:24px">
+            <button onclick="analizarFormula()" style="background:linear-gradient(135deg,#E8507A,#C02060);color:white;border:none;padding:16px 44px;border-radius:50px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1);display:flex;align-items:center;gap:10px;box-shadow:0 8px 30px rgba(232,80,122,0.35);opacity:0.5;pointer-events:none" id="analyzer-btn-inner">
+                🔬 &nbsp; Analizar Fórmula con IA
+                <span style="background:rgba(255,255,255,0.2);border-radius:6px;padding:2px 8px;font-size:8px">Claude AI</span>
+            </button>
+        </div>
+
+        <!-- Results area -->
+        <div id="analyzer-results" style="display:none;background:rgba(255,255,255,0.85);backdrop-filter:blur(16px);border-radius:28px;border:1.5px solid rgba(231,172,154,0.2);padding:24px;box-shadow:0 20px 60px rgba(231,172,154,0.12)"></div>
+    </div>
+</div>
+
+</body>
+</html>
